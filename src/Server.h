@@ -1,6 +1,6 @@
 #include <QObject>
 
-class QTcpServer;
+class QLocalServer;
 class WebPage;
 
 class Server : public QObject {
@@ -9,13 +9,13 @@ class Server : public QObject {
   public:
     Server(QObject *parent);
     bool start();
-    quint16 server_port() const;
+    QString server_name();
 
   public slots:
     void handleConnection();
 
   private:
-    QTcpServer *m_tcp_server;
+    QLocalServer *m_server;
     WebPage *m_page;
 };
 

@@ -1,7 +1,7 @@
 #include <QObject>
 #include <QStringList>
 
-class QTcpSocket;
+class QLocalSocket;
 class WebPage;
 class Command;
 class Response;
@@ -13,7 +13,7 @@ class Connection : public QObject {
   Q_OBJECT
 
   public:
-    Connection(QTcpSocket *socket, WebPage *page, QObject *parent = 0);
+    Connection(QLocalSocket *socket, WebPage *page, QObject *parent = 0);
 
   public slots:
     void commandReady(Command *command);
@@ -25,7 +25,7 @@ class Connection : public QObject {
     void writeResponse(Response *response);
     void writePageLoadFailure();
 
-    QTcpSocket *m_socket;
+    QLocalSocket *m_socket;
     Command *m_queuedCommand;
     WebPage *m_page;
     CommandParser *m_commandParser;

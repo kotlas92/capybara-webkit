@@ -9,7 +9,7 @@ class Capybara::Driver::Webkit
     attr_reader :port
 
     def initialize(options = {})
-      @socket_class = options[:socket_class] || TCPSocket
+      @socket_class = UNIXSocket
       @stdout       = options.has_key?(:stdout) ?
                         options[:stdout] :
                         $stdout
@@ -76,7 +76,7 @@ class Capybara::Driver::Webkit
 
     def discover_port(read_pipe)
       return unless IO.select([read_pipe], nil, nil, WEBKIT_SERVER_START_TIMEOUT)
-      ((read_pipe.first || '').match(/listening on port: (\d+)/) || [])[1].to_i
+      ((read_pipe.first || '').match(/listening at: (\S+)/) || [])[1]
     end
 
     def forward_stdout(pipe)
@@ -99,7 +99,7 @@ class Capybara::Driver::Webkit
     end
 
     def attempt_connect
-      @socket = @socket_class.open("127.0.0.1", @port)
+      @socket = @socket_class.open(@port)
     rescue Errno::ECONNREFUSED
     end
 
