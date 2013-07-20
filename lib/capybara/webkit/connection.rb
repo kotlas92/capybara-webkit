@@ -11,7 +11,7 @@ module Capybara::Webkit
     attr_reader :port
 
     def initialize(options = {})
-      @socket_class = options[:socket_class] || TCPSocket
+      @socket_class = UNIXSocket
       @output_target = options.has_key?(:stdout) ? options[:stdout] : $stdout
       start_server
       connect
@@ -68,7 +68,7 @@ module Capybara::Webkit
 
     def discover_port
       if IO.select([@pipe_stdout], nil, nil, WEBKIT_SERVER_START_TIMEOUT)
-        @port = ((@pipe_stdout.first || '').match(/listening on port: (\d+)/) || [])[1].to_i
+        @port = ((@pipe_stdout.first || '').match(/listening at: (\S+)/) || [])[1]
       end
     end
 
@@ -92,7 +92,7 @@ module Capybara::Webkit
     end
 
     def attempt_connect
-      @socket = @socket_class.open("127.0.0.1", @port)
+      @socket = @socket_class.open(@port)
       if defined?(Socket::TCP_NODELAY)
         @socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
       end
