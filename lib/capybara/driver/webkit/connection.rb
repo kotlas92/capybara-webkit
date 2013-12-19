@@ -14,6 +14,8 @@ class Capybara::Driver::Webkit
                         options[:stdout] :
                         $stdout
       start_server
+      @start_time = Time.now
+      write_pid_to_shared_file
       connect
     end
 
@@ -51,6 +53,15 @@ class Capybara::Driver::Webkit
       pipe
     end
 
+    def write_pid_to_shared_file
+      if Process.pid == @owner_pid
+        file_with_pids = File.open(ENV['TESTS_FILE_WITH_PIDS'] || '/tmp/capybara_worker_pids', 'a')
+        file_with_pids.flock(File::LOCK_EX)
+        file_with_pids.puts Process.pid
+        file_with_pids.close
+      end
+    end
+
     def kill_process(pid)
       if RUBY_PLATFORM =~ /mingw32/
         Process.kill(9, pid)
@@ -63,9 +74,40 @@ class Capybara::Driver::Webkit
       @owner_pid = Process.pid
       at_exit do
         if Process.pid == @owner_pid
+          inform_about_complete
+          save_complete_time
+          while(!all_workers_completed?) do
+            sleep(30)
+          end
           kill_process(@pid)
         end
       end
+    end
+
+    def inform_about_complete
+      file_with_pids = File.open(ENV['TESTS_FILE_WITH_PIDS'] || '/tmp/capybara_worker_pids', 'r')
+      pids = file_with_pids.read
+      file_with_pids.close
+      file_with_pids = File.open(ENV['TESTS_FILE_WITH_PIDS'] || '/tmp/capybara_worker_pids', 'w')
+      file_with_pids.flock(File::LOCK_EX)
+      pids.gsub!(/#{Process.pid}\n/, '')
+      file_with_pids.write pids
+      file_with_pids.close
+    end
+
+    def save_complete_time
+      file = File.open(ENV['TESTS_FILE_WITH_DURATIONS'] || '/tmp/capybara_workers_durations', 'a+')
+      file.flock(File::LOCK_EX)
+      file.puts '%s: %s' % [Process.pid, (Time.now - @start_time).to_i]
+      file.close
+    end
+
+    def all_workers_completed?
+      file_with_pids = File.open(ENV['TESTS_FILE_WITH_PIDS'] || '/tmp/capybara_worker_pids', 'r')
+      pids = file_with_pids.read
+      result = pids[/[0-9]+/]
+      file_with_pids.close
+      !result
     end
 
     def server_pipe_and_pid(server_path)
@@ -100,6 +142,9 @@ class Capybara::Driver::Webkit
 
     def attempt_connect
       @socket = @socket_class.open("127.0.0.1", @port)
+      if @socket.kind_of?(TCPSocket) and defined?(Socket::TCP_NODELAY)
+        @socket.setsockopt(:IPPROTO_TCP, :TCP_NODELAY, 1)
+      end
     rescue Errno::ECONNREFUSED
     end
 
